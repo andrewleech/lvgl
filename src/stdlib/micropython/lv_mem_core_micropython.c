@@ -9,6 +9,7 @@
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_MICROPYTHON
 #include "../../stdlib/lv_mem.h"
 #include "include/lv_mp_mem_custom_include.h"
+#include <py/mpconfig.h>
 
 /*********************
  *      DEFINES
@@ -62,17 +63,17 @@ void lv_mem_remove_pool(lv_mem_pool_t pool)
 
 void * lv_malloc_core(size_t size)
 {
-    return m_malloc(size);
+    return m_tracked_calloc(1, size);
 }
 
 void * lv_realloc_core(void * p, size_t new_size)
 {
-    return m_realloc(p, new_size);
+    return m_tracked_realloc(p, new_size);
 }
 
 void lv_free_core(void * p)
 {
-    m_free(p);
+    m_tracked_free(p);
 }
 
 void lv_mem_monitor_core(lv_mem_monitor_t * mon_p)
