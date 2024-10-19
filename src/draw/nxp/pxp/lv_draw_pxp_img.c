@@ -249,12 +249,12 @@ static void _pxp_blit_transform(uint8_t * dest_buf, const lv_area_t * dest_area,
         trim_x = (fp_scale_x == int_scale_x) ? int_scale_x - 1 : int_scale_x;
         trim_y = (fp_scale_y == int_scale_y) ? int_scale_y - 1 : int_scale_y;
 
-        dest_w = src_w * fp_scale_x + trim_x;
-        dest_h = src_h * fp_scale_y + trim_y;
+        dest_w = (uint32_t)(src_w * fp_scale_x) + trim_x;
+        dest_h = (uint32_t)(src_h * fp_scale_y) + trim_y;
 
         /*Final pivot offset = scale_factor * rotation_pivot_offset + scaling_pivot_offset*/
-        piv_offset_x = floorf(fp_scale_x * piv_offset_x) - floorf((fp_scale_x - 1) * pivot.x);
-        piv_offset_y = floorf(fp_scale_y * piv_offset_y) - floorf((fp_scale_y - 1) * pivot.y);
+        piv_offset_x = (uint32_t)(floorf(fp_scale_x * piv_offset_x) - floorf((fp_scale_x - 1) * pivot.x));
+        piv_offset_y = (uint32_t)(floorf(fp_scale_y * piv_offset_y) - floorf((fp_scale_y - 1) * pivot.y));
     }
 
     /*PS buffer - source image*/
