@@ -1125,7 +1125,7 @@ static lv_result_t decompress_image(lv_image_decoder_dsc_t * dsc, const lv_image
         int len;
         len = LZ4_decompress_safe(input, output, input_len, out_len);
         if(len < 0 || (uint32_t)len != compressed->decompressed_size) {
-            LV_LOG_WARN("Decompress failed: %" LV_PRId32 ", got: %" LV_PRId32, out_len, len);
+            LV_LOG_WARN("Decompress failed: %" LV_PRId32 ", got: %" LV_PRId32, out_len, (uint32_t)len);
             lv_draw_buf_destroy_user(image_cache_draw_buf_handlers, decompressed);
             return LV_RESULT_INVALID;
         }

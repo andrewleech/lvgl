@@ -11,10 +11,12 @@
 
 #include <stdio.h>
 #ifndef WIN32
+    #if LV_USE_STDLIB_MALLOC != LV_STDLIB_MICROPYTHON
     #include <dirent.h>
+    #endif
     #include <unistd.h>
-#else
-    #include <windows.h>
+// #else
+    // #include <windows.h>
 #endif
 
 #include "../../core/lv_global.h"
@@ -22,6 +24,63 @@
  *      DEFINES
  *********************/
 #define MAX_PATH_LEN 256
+
+#if LV_USE_STDLIB_MALLOC == LV_STDLIB_MICROPYTHON
+
+#include "py/obj.h"
+#include "py/runtime.h"
+#include "py/stream.h"
+#include "extmod/vfs.h"
+
+void * mpy_fopen(char *path, const char *flags) {
+    mp_obj_t args[2] = {
+        mp_obj_new_str_from_cstr(path),
+        mp_obj_new_str_from_cstr(flags),
+    };
+
+    return mp_vfs_open(MP_ARRAY_SIZE(args), args, (mp_map_t *)&mp_const_empty_map);
+}
+
+void mpy_fclose(void *file) {
+    mp_stream_close(file);
+}
+
+int	mpy_fseek(void *file, long offset, int whence) {
+    int error = 0;
+    return mp_stream_seek(file, offset, whence, &error);
+}
+
+int mpy_ftell(void *file) {
+    return mpy_fseek(file, 0, SEEK_CUR);
+}
+
+size_t mpy_fread(void *ptr, size_t size, size_t nmemb, void *file) {
+    int error = 0;
+    size_t total_size = size * nmemb;
+    mp_uint_t bytes = mp_stream_read_exactly(file, ptr, total_size, &error);
+    if (error != 0 || bytes != total_size) {
+        return -EINVAL;
+    }
+    return bytes;
+}
+
+size_t mpy_fwrite(const void *ptr , size_t size, size_t nmemb, void *file) {
+    size_t total_size = size * nmemb;
+    mp_stream_write(file, ptr, total_size, MP_STREAM_RW_WRITE);
+    // if (error != 0 || bytes != total_size) {
+    //     return -EINVAL;
+    // }
+    return total_size;
+}
+
+#define fopen mpy_fopen 
+#define fclose mpy_fclose 
+#define ftell mpy_ftell 
+#define fseek mpy_fseek 
+#define fread mpy_fread 
+#define fwrite mpy_fwrite 
+
+#endif
 
 /**********************
  *      TYPEDEFS
@@ -31,7 +90,9 @@ typedef struct {
     HANDLE dir_p;
     char next_fn[MAX_PATH_LEN];
 #else
+#if LV_USE_STDLIB_MALLOC != LV_STDLIB_MICROPYTHON
     DIR * dir_p;
+#endif    
 #endif
 } dir_handle_t;
 
@@ -44,9 +105,9 @@ static lv_fs_res_t fs_read(lv_fs_drv_t * drv, void * file_p, void * buf, uint32_
 static lv_fs_res_t fs_write(lv_fs_drv_t * drv, void * file_p, const void * buf, uint32_t btw, uint32_t * bw);
 static lv_fs_res_t fs_seek(lv_fs_drv_t * drv, void * file_p, uint32_t pos, lv_fs_whence_t whence);
 static lv_fs_res_t fs_tell(lv_fs_drv_t * drv, void * file_p, uint32_t * pos_p);
-static void * fs_dir_open(lv_fs_drv_t * drv, const char * path);
-static lv_fs_res_t fs_dir_read(lv_fs_drv_t * drv, void * dir_p, char * fn, uint32_t fn_len);
-static lv_fs_res_t fs_dir_close(lv_fs_drv_t * drv, void * dir_p);
+// static void * fs_dir_open(lv_fs_drv_t * drv, const char * path);
+// static lv_fs_res_t fs_dir_read(lv_fs_drv_t * drv, void * dir_p, char * fn, uint32_t fn_len);
+// static lv_fs_res_t fs_dir_close(lv_fs_drv_t * drv, void * dir_p);
 
 /**********************
  *  STATIC VARIABLES
@@ -83,9 +144,9 @@ void lv_fs_stdio_init(void)
     fs_drv_p->seek_cb = fs_seek;
     fs_drv_p->tell_cb = fs_tell;
 
-    fs_drv_p->dir_close_cb = fs_dir_close;
-    fs_drv_p->dir_open_cb = fs_dir_open;
-    fs_drv_p->dir_read_cb = fs_dir_read;
+    fs_drv_p->dir_close_cb = NULL; // fs_dir_close;
+    fs_drv_p->dir_open_cb = NULL; // fs_dir_open;
+    fs_drv_p->dir_read_cb = NULL; // fs_dir_read;
 
     lv_fs_drv_register(fs_drv_p);
 }
@@ -217,6 +278,7 @@ static lv_fs_res_t fs_tell(lv_fs_drv_t * drv, void * file_p, uint32_t * pos_p)
  * @param path  path to a directory
  * @return pointer to an initialized 'DIR' or 'HANDLE' variable
  */
+#if LV_USE_STDLIB_MALLOC != LV_STDLIB_MICROPYTHON
 static void * fs_dir_open(lv_fs_drv_t * drv, const char * path)
 {
     LV_UNUSED(drv);
@@ -263,6 +325,7 @@ static void * fs_dir_open(lv_fs_drv_t * drv, const char * path)
     return handle;
 #endif
 }
+#endif
 
 /**
  * Read the next filename form a directory.
@@ -273,6 +336,7 @@ static void * fs_dir_open(lv_fs_drv_t * drv, const char * path)
  * @param fn_len    length of the buffer to store the filename
  * @return LV_FS_RES_OK or any error from lv_fs_res_t enum
  */
+#if LV_USE_STDLIB_MALLOC != LV_STDLIB_MICROPYTHON
 static lv_fs_res_t fs_dir_read(lv_fs_drv_t * drv, void * dir_p, char * fn, uint32_t fn_len)
 {
     LV_UNUSED(drv);
@@ -317,13 +381,14 @@ static lv_fs_res_t fs_dir_read(lv_fs_drv_t * drv, void * dir_p, char * fn, uint3
 #endif
     return LV_FS_RES_OK;
 }
-
+#endif
 /**
  * Close the directory reading
  * @param drv   pointer to a driver where this function belongs
  * @param dir_p pointer to an initialized 'DIR' or 'HANDLE' variable
  * @return LV_FS_RES_OK or any error from lv_fs_res_t enum
  */
+#if LV_USE_STDLIB_MALLOC != LV_STDLIB_MICROPYTHON
 static lv_fs_res_t fs_dir_close(lv_fs_drv_t * drv, void * dir_p)
 {
     LV_UNUSED(drv);
@@ -336,7 +401,7 @@ static lv_fs_res_t fs_dir_close(lv_fs_drv_t * drv, void * dir_p)
     lv_free(handle);
     return LV_FS_RES_OK;
 }
-
+#endif
 #else /*LV_USE_FS_STDIO == 0*/
 
 #if defined(LV_FS_STDIO_LETTER) && LV_FS_STDIO_LETTER != '\0'
